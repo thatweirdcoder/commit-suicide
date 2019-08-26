@@ -1,6 +1,7 @@
 #include "Log.h"
 
 int main(void) {
-    LOG_INFO("logger test")
+    initLogger();
+    LOG_INFO("logger test");
 }
 
