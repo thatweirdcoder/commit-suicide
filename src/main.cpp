@@ -1,59 +1,53 @@
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
-#ifdef DEBUG
+#include "Log.h"
 
-#include "spdlog/spdlog.h"
-#include "spdlog/sinks/stdout_color_sinks.h"
-#include "spdlog/fmt/ostr.h"
+struct window {
+    int width{640};
+    int height{480};
+    const char *title{"Commit Suicide"};
+    GLFWwindow *handle{};
+    bool running{true};
+} window;
 
-#define LOG_TRACE(...) Logger->trace(__VA_ARGS__)
-#define LOG_INFO(...) Logger->info(__VA_ARGS__)
-#define LOG_WARN(...) Logger->warn(__VA_ARGS__)
-#define LOG_ERROR(...) Logger->error(__VA_ARGS__)
-#define LOG_FATAL(...) Logger->fatal(__VA_ARGS__)
-#else
-#define LOG_TRACE(...)
-#define LOG_INFO(...)
-#define LOG_WARN(...)
-#define LOG_ERROR(...)
-#define LOG_FATAL(...)
-#endif
+struct joystick {
+    bool present{false};
+    const char *name{};
+    int axes_count{};
+    float left_axis_x{};
+    float left_axis_y{};
+    int buttons_count{};
+    unsigned char button_a{};
+} joystick;
 
-struct windowInfo {
-    int width = 640;
-    int height = 480;
-    const char *title = "Commit Suicide";
-} windowInfo;
+bool init() {
+    // logging
+    initLogging();
 
-int main() {
-#ifdef DEBUG
-    std::shared_ptr<spdlog::logger> Logger;
-    spdlog::set_pattern("%^[%T] %n: %v%$");
-    Logger = spdlog::stdout_color_mt("Logger");
-    Logger->set_level(spdlog::level::trace);
-    LOG_INFO("Init Logger");
-#endif
-
-    GLFWwindow *window;
-
+    // window
     if (!glfwInit()) {
         LOG_ERROR("failed to initialize glfw");
-        return -1;
+        return false;
     }
 
-    window = glfwCreateWindow(windowInfo.width, windowInfo.height, windowInfo.title, nullptr, nullptr);
-    if (!window) {
+    glfwWindowHint(GLFW_RESIZABLE, false);
+
+    window.handle = glfwCreateWindow(window.width, window.height, window.title, nullptr, nullptr);
+    const GLFWvidmode *vidmode{glfwGetVideoMode(glfwGetPrimaryMonitor())};
+    glfwSetWindowPos(window.handle, (vidmode->width - window.width) / 2, (vidmode->height - window.height) / 2);
+
+    if (!window.handle) {
         LOG_ERROR("error creating glfw window");
-        glfwTerminate();
-        return -1;
+        return false;
     }
 
-    glfwMakeContextCurrent(window);
+    glfwMakeContextCurrent(window.handle);
 
+    // opengl
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
         LOG_ERROR("error initializing glad");
-        return -1;
+        return false;
     }
 
     LOG_INFO("OpenGL Info:");
@@ -61,22 +55,75 @@ int main() {
     LOG_INFO("  Renderer: {0}", glGetString(GL_RENDERER));
     LOG_INFO("  Version: {0}", glGetString(GL_VERSION));
 
-    while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.03f, 0.09f, 0.13f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
+    float positions[6]{
+            -0.5f, -0.5f,
+            -0.0f, 0.5f,
+            0.5f, -0.5f
 
-        glBegin(GL_TRIANGLES);
-        glVertex2f(-0.5f, -0.5f);
-        glVertex2f(-0.0f, 0.5f);
-        glVertex2f(0.5f, -0.5f);
-        glEnd();
+    };
 
-        glfwSwapBuffers(window);
+    unsigned int buffer;
+    glGenBuffers(1, &buffer);
+    glBindBuffer(GL_ARRAY_BUFFER, buffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(positions), positions, GL_STATIC_DRAW);
 
-        glfwPollEvents();
+    return true;
+}
+
+void update() {
+    glClearColor(0.03f, 0.09f, 0.13f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+
+    glDrawArrays(GL_TRIANGLES, 0, 3);
+
+
+    if (!glfwJoystickPresent(GLFW_JOYSTICK_1)) {
+        LOG_INFO("Connect Joystick");
+        joystick.present = false;
+    } else {
+        joystick.name = glfwGetJoystickName(GLFW_JOYSTICK_1);
+
+        const float *axes{glfwGetJoystickAxes(GLFW_JOYSTICK_1, &joystick.axes_count)};
+        joystick.left_axis_x = axes[0];
+        joystick.left_axis_y = axes[1];
+
+        joystick.button_a = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &joystick.buttons_count)[0];
+        joystick.present = true;
     }
 
+    if (joystick.present && joystick.button_a == GLFW_PRESS) {
+        LOG_INFO("JUMP");
+    }
+
+    glfwPollEvents();
+}
+
+void render() {
+    glfwSwapBuffers(window.handle);
+}
+
+void run() {
+    if (!init()) {
+        LOG_ERROR("init error");
+    }
+    while (window.running) {
+        update();
+        render();
+
+        if (glfwWindowShouldClose(window.handle)) {
+            window.running = false;
+        }
+    }
+}
+
+void cleanup() {
     glfwTerminate();
+}
+
+int main() {
+    run();
+    cleanup();
+
     return 0;
 }
 
