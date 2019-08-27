@@ -11,6 +11,13 @@ add_subdirectory(vendor/GLFW)
 add_subdirectory(vendor/GLAD)
 add_subdirectory(vendor/glm)
 
+target_link_libraries(
+        CommitSuicide
+        PUBLIC
+        glfw
+        glad
+        glm
+)
 
 target_include_directories(
         CommitSuicide
