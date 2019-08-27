@@ -44,6 +44,31 @@ bool init() {
 
     glfwMakeContextCurrent(window.handle);
 
+    // input
+    if (glfwJoystickPresent(GLFW_JOYSTICK_1)) {
+        joystick.name = glfwGetJoystickName(GLFW_JOYSTICK_1);
+        joystick.present = true;
+    }
+    glfwSetJoystickCallback([](int jid, int action) {
+        switch (action) {
+            case GLFW_CONNECTED: {
+                LOG_WARN("Joystick Connected");
+                joystick.name = glfwGetJoystickName(GLFW_JOYSTICK_1);
+                joystick.present = true;
+                break;
+            }
+            case GLFW_DISCONNECTED: {
+                LOG_WARN("Joystick Disconnected");
+                joystick.present = false;
+                break;
+            }
+            default: {
+
+            }
+        }
+
+    });
+
     // opengl
     if (!gladLoadGLLoader((GLADloadproc) glfwGetProcAddress)) {
         LOG_ERROR("error initializing glad");
@@ -76,26 +101,22 @@ void update() {
 
     glDrawArrays(GL_TRIANGLES, 0, 3);
 
-
-    if (!glfwJoystickPresent(GLFW_JOYSTICK_1)) {
-        LOG_INFO("Connect Joystick");
-        joystick.present = false;
-    } else {
-        joystick.name = glfwGetJoystickName(GLFW_JOYSTICK_1);
-
+    // input
+    if (joystick.present) {
         const float *axes{glfwGetJoystickAxes(GLFW_JOYSTICK_1, &joystick.axes_count)};
         joystick.left_axis_x = axes[0];
         joystick.left_axis_y = axes[1];
 
         joystick.button_a = glfwGetJoystickButtons(GLFW_JOYSTICK_1, &joystick.buttons_count)[0];
-        joystick.present = true;
     }
 
-    if (joystick.present && joystick.button_a == GLFW_PRESS) {
+
+    if (joystick.button_a == GLFW_PRESS) {
         LOG_INFO("JUMP");
     }
 
     glfwPollEvents();
+
 }
 
 void render() {
